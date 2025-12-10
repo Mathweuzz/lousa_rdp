@@ -11,6 +11,8 @@ Além disso, cada traço pode guardar:
   (limpeza, fechamento opcional, reamostragem).
 - simplified_points: pontos (x, y) após simplificação (RDP).
 - is_closed: boolean indicando se o traço é considerado "fechado".
+- detected_shape_type: tipo de forma detectada ("line", "circle", "rect", "polyline").
+- detected_shape_info: dicionário com detalhes da forma detectada.
 """
 
 import math
@@ -27,6 +29,8 @@ class Stroke:
     - processed_points: lista de tuplas (x, y) após pré-processamento.
     - simplified_points: lista de tuplas (x, y) após RDP.
     - is_closed: boolean indicando se o traço é considerado "fechado".
+    - detected_shape_type: tipo de forma detectada, ou None.
+    - detected_shape_info: dicionário com informações adicionais da forma.
     """
 
     def __init__(self, color=(255, 255, 255), width=3):
@@ -36,6 +40,8 @@ class Stroke:
         self.processed_points = []
         self.simplified_points = []
         self.is_closed = False
+        self.detected_shape_type = None
+        self.detected_shape_info = {}
 
     def add_point(self, pos, t):
         """
@@ -90,6 +96,16 @@ class Stroke:
         :param xy_points: lista de tuplas (x, y).
         """
         self.simplified_points = list(xy_points) if xy_points is not None else []
+
+    def set_detected_shape(self, shape_type, shape_info):
+        """
+        Define o tipo de forma detectada e suas informações associadas.
+
+        :param shape_type: string, ex.: "line", "circle", "rect", "polyline".
+        :param shape_info: dicionário com parâmetros da forma.
+        """
+        self.detected_shape_type = shape_type
+        self.detected_shape_info = dict(shape_info) if shape_info is not None else {}
 
 
 # ---------------------------------------------------------------------------

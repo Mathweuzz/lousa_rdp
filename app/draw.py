@@ -28,7 +28,7 @@ def draw_grid(surface, width, height, cell_size=32):
         pygame.draw.line(surface, GRID_COLOR, (0, y), (width, y))
 
 
-def draw_hud(surface, font, fps, mode_text, epsilon_value, clear_count, stroke_count):
+def draw_hud(surface, font, fps, mode_text, epsilon_value, clear_count, stroke_count, last_shape_text):
     """
     Desenha o HUD (overlay) com informações de status
     no canto superior esquerdo da tela.
@@ -40,15 +40,17 @@ def draw_hud(surface, font, fps, mode_text, epsilon_value, clear_count, stroke_c
     :param epsilon_value: Valor atual de epsilon (usado pelo RDP).
     :param clear_count: Quantidade de vezes que o usuário apertou C (clear).
     :param stroke_count: Quantidade de traços finalizados.
+    :param last_shape_text: texto com a última forma detectada.
     """
     # Linhas de texto que serão mostradas no HUD
     lines = [
-        "LousaRDP - Passo 4",
+        "LousaRDP - Passo 5",
         f"FPS: {fps:5.1f}",
         mode_text,
         f"epsilon (RDP): {epsilon_value:.2f}",
         f"Clears (C): {clear_count}",
         f"Traços: {stroke_count}",
+        f"Última forma: {last_shape_text}",
         "Atalhos: Q=sair | C=limpar | Z=undo | [ / ] = epsilon",
     ]
 

@@ -13,6 +13,7 @@ from .strokes import (
     preprocess_points_for_rdp,
 )
 from .rdp import rdp
+from .fit import classify_shape
 
 # Configurações da janela
 WINDOW_WIDTH = 1280
@@ -38,7 +39,7 @@ def main():
 
     # Cria a janela principal
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("LousaRDP - Lousa de Desenho com Correção de Formas (Passo 4)")
+    pygame.display.set_caption("LousaRDP - Lousa de Desenho com Correção de Formas (Passo 5)")
 
     # Relógio para controlar FPS
     clock = pygame.time.Clock()
@@ -60,6 +61,9 @@ def main():
     strokes = []           # lista de Stroke finalizados
     current_stroke = None  # traço em andamento (Stroke ou None)
 
+    # Texto com a última forma detectada
+    last_shape_text = "N/A"
+
     # Cor e espessura do traço padrão (por enquanto fixos)
     stroke_color = (255, 255, 255)
     stroke_width = 3
@@ -80,7 +84,7 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     # Tecla Q: sair da aplicação
-                    print("[INFO] Tecla Q pressionada - saindo da LousaRDP (Passo 4).")
+                    print("[INFO] Tecla Q pressionada - saindo da LousaRDP (Passo 5).")
                     running = False
 
                 elif event.key == pygame.K_c:
@@ -88,6 +92,7 @@ def main():
                     clear_count += 1
                     strokes.clear()
                     current_stroke = None
+                    last_shape_text = "N/A"
                     print(f"[INFO] Tecla C pressionada - clear #{clear_count}. Todos os traços foram removidos.")
 
                 elif event.key == pygame.K_z:
@@ -95,9 +100,15 @@ def main():
                     if strokes:
                         removed = strokes.pop()
                         print(
-                            f"[INFO] Undo (Z): removido traço com {len(removed.points)} pontos originais. "
+                            f"[INFO] Undo (Z): removido traço com "
+                            f"{len(removed.points)} pontos originais. "
                             f"Traços restantes: {len(strokes)}"
                         )
+                        # Atualiza última forma detectada com base no novo último traço
+                        if strokes and strokes[-1].detected_shape_type:
+                            last_shape_text = strokes[-1].detected_shape_type.upper()
+                        else:
+                            last_shape_text = "N/A"
                     else:
                         print("[INFO] Undo (Z): nenhum traço para remover.")
 
@@ -156,14 +167,24 @@ def main():
 
                         current_stroke.set_simplified_points(simplified)
 
+                        # Classificação de forma (v1)
+                        shape_type, shape_info = classify_shape(
+                            processed_points=processed_xy,
+                            simplified_points=simplified,
+                            is_closed=is_closed,
+                        )
+                        current_stroke.set_detected_shape(shape_type, shape_info)
+                        last_shape_text = shape_type.upper() if shape_type else "N/A"
+
                         strokes.append(current_stroke)
+
                         print(
                             f"[INFO] Traço finalizado. "
                             f"Originais: {len(xy_points)} pts | "
                             f"Pré-processados: {len(processed_xy)} pts | "
                             f"Simplificados (RDP): {len(simplified)} pts | "
-                            f"Fechado: {is_closed}. "
-                            f"Total de traços: {len(strokes)}"
+                            f"Fechado: {is_closed} | "
+                            f"Forma detectada: {shape_type}."
                         )
                     else:
                         print("[INFO] Traço vazio descartado.")
@@ -193,6 +214,7 @@ def main():
             epsilon_value=epsilon_value,
             clear_count=clear_count,
             stroke_count=len(strokes),
+            last_shape_text=last_shape_text,
         )
 
         # Atualiza a tela
