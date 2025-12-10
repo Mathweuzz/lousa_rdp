@@ -8,7 +8,10 @@ from .draw import (
     draw_current_stroke,
     draw_strokes_simplified,
 )
-from .strokes import Stroke
+from .strokes import (
+    Stroke,
+    preprocess_points_for_rdp,
+)
 from .rdp import rdp
 
 # Configurações da janela
@@ -23,6 +26,10 @@ EPSILON_MIN = 1.0
 EPSILON_MAX = 200.0
 EPSILON_STEP = 2.0
 
+# Parâmetros de pré-processamento
+CLOSE_THRESHOLD_PX = 20.0
+TARGET_SPACING_PX = 5.0
+
 
 def main():
     # Inicializa módulos principais do pygame
@@ -31,7 +38,7 @@ def main():
 
     # Cria a janela principal
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("LousaRDP - Lousa de Desenho com Correção de Formas (Passo 3)")
+    pygame.display.set_caption("LousaRDP - Lousa de Desenho com Correção de Formas (Passo 4)")
 
     # Relógio para controlar FPS
     clock = pygame.time.Clock()
@@ -46,7 +53,7 @@ def main():
 
     # Estado mínimo
     mode_text = "MODO: desenho"
-    epsilon_value = 10.0  # agora de fato utilizado pelo RDP
+    epsilon_value = 10.0  # usado pelo RDP
     clear_count = 0       # quantas vezes o usuário apertou C
 
     # Estado de traços
@@ -73,7 +80,7 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     # Tecla Q: sair da aplicação
-                    print("[INFO] Tecla Q pressionada - saindo da LousaRDP (Passo 3).")
+                    print("[INFO] Tecla Q pressionada - saindo da LousaRDP (Passo 4).")
                     running = False
 
                 elif event.key == pygame.K_c:
@@ -88,7 +95,7 @@ def main():
                     if strokes:
                         removed = strokes.pop()
                         print(
-                            f"[INFO] Undo (Z): removido traço com {len(removed)} pontos. "
+                            f"[INFO] Undo (Z): removido traço com {len(removed.points)} pontos originais. "
                             f"Traços restantes: {len(strokes)}"
                         )
                     else:
@@ -124,20 +131,39 @@ def main():
                 # Botão esquerdo do mouse solto: finaliza traço
                 if event.button == 1 and current_stroke is not None:
                     if not current_stroke.is_empty():
-                        # Calcula pontos simplificados via RDP
+                        # Obtém pontos originais (x, y)
                         xy_points = current_stroke.get_xy_points()
 
-                        if len(xy_points) >= 2:
-                            simplified = rdp(xy_points, epsilon_value)
+                        # Pré-processamento: limpeza, fechamento opcional, reamostragem
+                        processed_xy, is_closed = preprocess_points_for_rdp(
+                            xy_points,
+                            close_threshold=CLOSE_THRESHOLD_PX,
+                            target_spacing=TARGET_SPACING_PX,
+                        )
+                        current_stroke.set_processed_points(processed_xy, is_closed)
+
+                        # Escolhe qual lista passar para o RDP (se não houver processados, usa originais)
+                        if len(processed_xy) >= 2:
+                            rdp_input = processed_xy
                         else:
-                            simplified = xy_points
+                            rdp_input = xy_points
+
+                        # Aplica RDP
+                        if len(rdp_input) >= 2:
+                            simplified = rdp(rdp_input, epsilon_value)
+                        else:
+                            simplified = rdp_input
 
                         current_stroke.set_simplified_points(simplified)
 
                         strokes.append(current_stroke)
                         print(
-                            f"[INFO] Traço finalizado com {len(current_stroke)} pontos (originais). "
-                            f"Simplificado para {len(simplified)} pontos. Total de traços: {len(strokes)}"
+                            f"[INFO] Traço finalizado. "
+                            f"Originais: {len(xy_points)} pts | "
+                            f"Pré-processados: {len(processed_xy)} pts | "
+                            f"Simplificados (RDP): {len(simplified)} pts | "
+                            f"Fechado: {is_closed}. "
+                            f"Total de traços: {len(strokes)}"
                         )
                     else:
                         print("[INFO] Traço vazio descartado.")

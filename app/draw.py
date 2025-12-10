@@ -43,7 +43,7 @@ def draw_hud(surface, font, fps, mode_text, epsilon_value, clear_count, stroke_c
     """
     # Linhas de texto que serão mostradas no HUD
     lines = [
-        "LousaRDP - Passo 3",
+        "LousaRDP - Passo 4",
         f"FPS: {fps:5.1f}",
         mode_text,
         f"epsilon (RDP): {epsilon_value:.2f}",
