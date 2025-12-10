@@ -5,7 +5,7 @@ GRID_COLOR = (60, 60, 60)
 HUD_TEXT_COLOR = (230, 230, 230)
 HUD_BG_COLOR = (0, 0, 0)
 
-# Cor para traços simplificados
+# Cor para traços simplificados (RDP)
 SIMPLIFIED_COLOR = (255, 180, 0)
 
 
@@ -13,11 +13,6 @@ def draw_grid(surface, width, height, cell_size=32):
     """
     Desenha um grid leve (linhas horizontais e verticais)
     sobre toda a área da tela.
-
-    :param surface: Surface do pygame onde será desenhado.
-    :param width: Largura da janela em pixels.
-    :param height: Altura da janela em pixels.
-    :param cell_size: Espaçamento entre linhas do grid.
     """
     # Linhas verticais
     for x in range(0, width, cell_size):
@@ -28,51 +23,56 @@ def draw_grid(surface, width, height, cell_size=32):
         pygame.draw.line(surface, GRID_COLOR, (0, y), (width, y))
 
 
-def draw_hud(surface, font, fps, mode_text, epsilon_value, clear_count, stroke_count, last_shape_text):
+def draw_hud(
+    surface,
+    font,
+    fps,
+    mode_text,
+    epsilon_value,
+    clear_count,
+    stroke_count,
+    last_shape_text,
+    snap_enabled,
+    current_color_index,
+    current_color,
+):
     """
     Desenha o HUD (overlay) com informações de status
     no canto superior esquerdo da tela.
-
-    :param surface: Surface do pygame onde será desenhado.
-    :param font: Fonte do pygame já carregada.
-    :param fps: Valor atual de FPS (float).
-    :param mode_text: Texto representando o modo atual (ex.: "MODO: desenho").
-    :param epsilon_value: Valor atual de epsilon (usado pelo RDP).
-    :param clear_count: Quantidade de vezes que o usuário apertou C (clear).
-    :param stroke_count: Quantidade de traços finalizados.
-    :param last_shape_text: texto com a última forma detectada.
     """
-    # Linhas de texto que serão mostradas no HUD
+    snap_text = "SNAP: ON" if snap_enabled else "SNAP: OFF"
+    color_text = f"Cor atual: #{current_color_index + 1} {current_color}"
+
     lines = [
-        "LousaRDP - Passo 5",
+        "LousaRDP - Versão Final",
         f"FPS: {fps:5.1f}",
         mode_text,
+        snap_text,
         f"epsilon (RDP): {epsilon_value:.2f}",
         f"Clears (C): {clear_count}",
         f"Traços: {stroke_count}",
         f"Última forma: {last_shape_text}",
-        "Atalhos: Q=sair | C=limpar | Z=undo | [ / ] = epsilon",
+        "Atalhos:",
+        "  Q=sair | C=limpar | Z=undo | Y=redo | G=snap ON/OFF",
+        "  S=salvar PNG | [ / ]=epsilon | 1..5=cor | V=modo seleção",
+        color_text,
     ]
 
     padding = 8
     line_height = font.get_linesize()
 
-    # Primeiro medimos a largura máxima do texto para dimensionar o retângulo de fundo
+    # Mede largura máxima
     hud_width = 0
     for line in lines:
         text_surface = font.render(line, True, HUD_TEXT_COLOR)
-        if text_surface.get_width() > hud_width:
-            hud_width = text_surface.get_width()
+        hud_width = max(hud_width, text_surface.get_width())
 
     hud_height = line_height * len(lines) + padding * 2
 
-    # Retângulo de fundo do HUD (no canto superior esquerdo)
     hud_rect = pygame.Rect(10, 10, hud_width + padding * 2, hud_height)
 
-    # Desenha o fundo do HUD
     pygame.draw.rect(surface, HUD_BG_COLOR, hud_rect)
 
-    # Desenha cada linha de texto
     y = hud_rect.y + padding
     for line in lines:
         text_surface = font.render(line, True, HUD_TEXT_COLOR)
@@ -83,26 +83,19 @@ def draw_hud(surface, font, fps, mode_text, epsilon_value, clear_count, stroke_c
 def _draw_point_list(surface, points, color, width):
     """
     Desenha uma lista de pontos como segmentos de linha.
-
-    :param surface: Surface do pygame onde será desenhado.
-    :param points: lista de pontos (x, y) ou (x, y, t).
-    :param color: tupla (R, G, B) da cor.
-    :param width: espessura da linha.
     """
     if not points:
         return
 
-    # Se tiver só um ponto, desenha um pequeno círculo
     if len(points) == 1:
         p = points[0]
         if len(p) == 3:
             x, y, _ = p
         else:
             x, y = p
-        pygame.draw.circle(surface, color, (x, y), width)
+        pygame.draw.circle(surface, color, (int(x), int(y)), width)
         return
 
-    # Caso geral: desenha segmentos entre pontos consecutivos
     for i in range(1, len(points)):
         p1 = points[i - 1]
         p2 = points[i]
@@ -117,15 +110,12 @@ def _draw_point_list(surface, points, color, width):
         else:
             x2, y2 = p2
 
-        pygame.draw.line(surface, color, (x1, y1), (x2, y2), width)
+        pygame.draw.line(surface, color, (int(x1), int(y1)), (int(x2), int(y2)), width)
 
 
 def _draw_single_stroke(surface, stroke):
     """
     Desenha um único traço original na tela.
-
-    :param surface: Surface do pygame onde será desenhado.
-    :param stroke: Instância de Stroke (definida em app.strokes).
     """
     _draw_point_list(surface, stroke.points, stroke.color, stroke.width)
 
@@ -133,9 +123,6 @@ def _draw_single_stroke(surface, stroke):
 def draw_strokes(surface, strokes):
     """
     Desenha todos os traços finalizados (originais).
-
-    :param surface: Surface do pygame onde será desenhado.
-    :param strokes: Lista de instâncias de Stroke.
     """
     for stroke in strokes:
         _draw_single_stroke(surface, stroke)
@@ -144,9 +131,6 @@ def draw_strokes(surface, strokes):
 def draw_current_stroke(surface, current_stroke):
     """
     Desenha o traço atualmente em andamento (se existir), na forma original.
-
-    :param surface: Surface do pygame onde será desenhado.
-    :param current_stroke: Instância de Stroke ou None.
     """
     if current_stroke is not None:
         _draw_single_stroke(surface, current_stroke)
@@ -156,12 +140,19 @@ def draw_strokes_simplified(surface, strokes):
     """
     Desenha a versão simplificada (RDP) de todos os traços finalizados,
     em uma cor diferente, por cima dos traços originais.
-
-    :param surface: Surface do pygame onde será desenhado.
-    :param strokes: Lista de instâncias de Stroke.
     """
     for stroke in strokes:
         if stroke.simplified_points:
-            # Usa uma largura ligeiramente menor ou igual
             width = max(1, stroke.width - 1)
             _draw_point_list(surface, stroke.simplified_points, SIMPLIFIED_COLOR, width)
+
+
+def draw_shapes(surface, shapes, snap_enabled):
+    """
+    Desenha as formas canônicas (shapes) se o snap estiver ligado.
+    """
+    if not snap_enabled:
+        return
+
+    for shape in shapes:
+        shape.draw(surface)
