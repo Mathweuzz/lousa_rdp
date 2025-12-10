@@ -5,6 +5,9 @@ GRID_COLOR = (60, 60, 60)
 HUD_TEXT_COLOR = (230, 230, 230)
 HUD_BG_COLOR = (0, 0, 0)
 
+# Cor para traços simplificados
+SIMPLIFIED_COLOR = (255, 180, 0)
+
 
 def draw_grid(surface, width, height, cell_size=32):
     """
@@ -34,19 +37,19 @@ def draw_hud(surface, font, fps, mode_text, epsilon_value, clear_count, stroke_c
     :param font: Fonte do pygame já carregada.
     :param fps: Valor atual de FPS (float).
     :param mode_text: Texto representando o modo atual (ex.: "MODO: desenho").
-    :param epsilon_value: Valor atual de epsilon (placeholder neste passo).
+    :param epsilon_value: Valor atual de epsilon (usado pelo RDP).
     :param clear_count: Quantidade de vezes que o usuário apertou C (clear).
     :param stroke_count: Quantidade de traços finalizados.
     """
     # Linhas de texto que serão mostradas no HUD
     lines = [
-        "LousaRDP - Passo 2",
+        "LousaRDP - Passo 3",
         f"FPS: {fps:5.1f}",
         mode_text,
-        f"epsilon (placeholder): {epsilon_value:.2f}",
+        f"epsilon (RDP): {epsilon_value:.2f}",
         f"Clears (C): {clear_count}",
         f"Traços: {stroke_count}",
-        "Atalhos: Q = sair | C = limpar | Z = undo",
+        "Atalhos: Q=sair | C=limpar | Z=undo | [ / ] = epsilon",
     ]
 
     padding = 8
@@ -75,34 +78,59 @@ def draw_hud(surface, font, fps, mode_text, epsilon_value, clear_count, stroke_c
         y += line_height
 
 
-def _draw_single_stroke(surface, stroke):
+def _draw_point_list(surface, points, color, width):
     """
-    Desenha um único traço na tela.
+    Desenha uma lista de pontos como segmentos de linha.
 
     :param surface: Surface do pygame onde será desenhado.
-    :param stroke: Instância de Stroke (definida em app.strokes).
+    :param points: lista de pontos (x, y) ou (x, y, t).
+    :param color: tupla (R, G, B) da cor.
+    :param width: espessura da linha.
     """
-    points = stroke.points
-
     if not points:
         return
 
     # Se tiver só um ponto, desenha um pequeno círculo
     if len(points) == 1:
-        x, y, _ = points[0]
-        pygame.draw.circle(surface, stroke.color, (x, y), stroke.width)
+        p = points[0]
+        if len(p) == 3:
+            x, y, _ = p
+        else:
+            x, y = p
+        pygame.draw.circle(surface, color, (x, y), width)
         return
 
     # Caso geral: desenha segmentos entre pontos consecutivos
     for i in range(1, len(points)):
-        x1, y1, _ = points[i - 1]
-        x2, y2, _ = points[i]
-        pygame.draw.line(surface, stroke.color, (x1, y1), (x2, y2), stroke.width)
+        p1 = points[i - 1]
+        p2 = points[i]
+
+        if len(p1) == 3:
+            x1, y1, _ = p1
+        else:
+            x1, y1 = p1
+
+        if len(p2) == 3:
+            x2, y2, _ = p2
+        else:
+            x2, y2 = p2
+
+        pygame.draw.line(surface, color, (x1, y1), (x2, y2), width)
+
+
+def _draw_single_stroke(surface, stroke):
+    """
+    Desenha um único traço original na tela.
+
+    :param surface: Surface do pygame onde será desenhado.
+    :param stroke: Instância de Stroke (definida em app.strokes).
+    """
+    _draw_point_list(surface, stroke.points, stroke.color, stroke.width)
 
 
 def draw_strokes(surface, strokes):
     """
-    Desenha todos os traços finalizados.
+    Desenha todos os traços finalizados (originais).
 
     :param surface: Surface do pygame onde será desenhado.
     :param strokes: Lista de instâncias de Stroke.
@@ -113,10 +141,25 @@ def draw_strokes(surface, strokes):
 
 def draw_current_stroke(surface, current_stroke):
     """
-    Desenha o traço atualmente em andamento (se existir).
+    Desenha o traço atualmente em andamento (se existir), na forma original.
 
     :param surface: Surface do pygame onde será desenhado.
     :param current_stroke: Instância de Stroke ou None.
     """
     if current_stroke is not None:
         _draw_single_stroke(surface, current_stroke)
+
+
+def draw_strokes_simplified(surface, strokes):
+    """
+    Desenha a versão simplificada (RDP) de todos os traços finalizados,
+    em uma cor diferente, por cima dos traços originais.
+
+    :param surface: Surface do pygame onde será desenhado.
+    :param strokes: Lista de instâncias de Stroke.
+    """
+    for stroke in strokes:
+        if stroke.simplified_points:
+            # Usa uma largura ligeiramente menor ou igual
+            width = max(1, stroke.width - 1)
+            _draw_point_list(surface, stroke.simplified_points, SIMPLIFIED_COLOR, width)

@@ -1,8 +1,15 @@
 import sys
 import pygame
 
-from .draw import draw_grid, draw_hud, draw_strokes, draw_current_stroke
+from .draw import (
+    draw_grid,
+    draw_hud,
+    draw_strokes,
+    draw_current_stroke,
+    draw_strokes_simplified,
+)
 from .strokes import Stroke
+from .rdp import rdp
 
 # Configurações da janela
 WINDOW_WIDTH = 1280
@@ -10,6 +17,11 @@ WINDOW_HEIGHT = 720
 
 # Cor de fundo (um cinza bem escuro)
 BACKGROUND_COLOR = (20, 20, 20)
+
+# Limites e passo de variação do epsilon (RDP)
+EPSILON_MIN = 1.0
+EPSILON_MAX = 200.0
+EPSILON_STEP = 2.0
 
 
 def main():
@@ -19,7 +31,7 @@ def main():
 
     # Cria a janela principal
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("LousaRDP - Lousa de Desenho com Correção de Formas (Passo 2)")
+    pygame.display.set_caption("LousaRDP - Lousa de Desenho com Correção de Formas (Passo 3)")
 
     # Relógio para controlar FPS
     clock = pygame.time.Clock()
@@ -34,11 +46,11 @@ def main():
 
     # Estado mínimo
     mode_text = "MODO: desenho"
-    epsilon_value = 10.0  # placeholder (será dinâmico nos próximos passos)
+    epsilon_value = 10.0  # agora de fato utilizado pelo RDP
     clear_count = 0       # quantas vezes o usuário apertou C
 
     # Estado de traços
-    strokes = []          # lista de Stroke finalizados
+    strokes = []           # lista de Stroke finalizados
     current_stroke = None  # traço em andamento (Stroke ou None)
 
     # Cor e espessura do traço padrão (por enquanto fixos)
@@ -61,7 +73,7 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     # Tecla Q: sair da aplicação
-                    print("[INFO] Tecla Q pressionada - saindo da LousaRDP (Passo 2).")
+                    print("[INFO] Tecla Q pressionada - saindo da LousaRDP (Passo 3).")
                     running = False
 
                 elif event.key == pygame.K_c:
@@ -82,6 +94,18 @@ def main():
                     else:
                         print("[INFO] Undo (Z): nenhum traço para remover.")
 
+                elif event.key == pygame.K_LEFTBRACKET:
+                    # Tecla '[': diminuir epsilon
+                    old = epsilon_value
+                    epsilon_value = max(EPSILON_MIN, epsilon_value - EPSILON_STEP)
+                    print(f"[INFO] Epsilon diminuído: {old:.2f} -> {epsilon_value:.2f}")
+
+                elif event.key == pygame.K_RIGHTBRACKET:
+                    # Tecla ']': aumentar epsilon
+                    old = epsilon_value
+                    epsilon_value = min(EPSILON_MAX, epsilon_value + EPSILON_STEP)
+                    print(f"[INFO] Epsilon aumentado: {old:.2f} -> {epsilon_value:.2f}")
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # Botão esquerdo do mouse pressionado: inicia novo traço
                 if event.button == 1:
@@ -100,8 +124,21 @@ def main():
                 # Botão esquerdo do mouse solto: finaliza traço
                 if event.button == 1 and current_stroke is not None:
                     if not current_stroke.is_empty():
+                        # Calcula pontos simplificados via RDP
+                        xy_points = current_stroke.get_xy_points()
+
+                        if len(xy_points) >= 2:
+                            simplified = rdp(xy_points, epsilon_value)
+                        else:
+                            simplified = xy_points
+
+                        current_stroke.set_simplified_points(simplified)
+
                         strokes.append(current_stroke)
-                        print(f"[INFO] Traço finalizado com {len(current_stroke)} pontos. Total de traços: {len(strokes)}")
+                        print(
+                            f"[INFO] Traço finalizado com {len(current_stroke)} pontos (originais). "
+                            f"Simplificado para {len(simplified)} pontos. Total de traços: {len(strokes)}"
+                        )
                     else:
                         print("[INFO] Traço vazio descartado.")
                     current_stroke = None
@@ -112,11 +149,14 @@ def main():
         # Desenha o grid
         draw_grid(screen, WINDOW_WIDTH, WINDOW_HEIGHT, cell_size=32)
 
-        # Desenha todos os traços finalizados
+        # Desenha todos os traços finalizados (originais)
         draw_strokes(screen, strokes)
 
-        # Desenha o traço atual (se existir)
+        # Desenha o traço atual (original), se existir
         draw_current_stroke(screen, current_stroke)
+
+        # Desenha a versão simplificada (RDP) por cima dos traços finalizados
+        draw_strokes_simplified(screen, strokes)
 
         # Desenha o HUD
         draw_hud(

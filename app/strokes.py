@@ -5,8 +5,8 @@ Cada traço é uma sequência de pontos (x, y, t), onde:
 - x, y: coordenadas na tela (pixels).
 - t: tempo em segundos desde o início (float).
 
-Este módulo NÃO sabe nada sobre pygame diretamente. Ele apenas organiza
-os dados dos traços. O desenho em si é tratado em app.draw.
+Além disso, cada traço pode guardar uma versão simplificada de seus pontos
+(sem o tempo), tipicamente gerada pelo algoritmo Ramer–Douglas–Peucker (RDP).
 """
 
 
@@ -17,13 +17,15 @@ class Stroke:
     Atributos:
     - color: tupla (R, G, B) com a cor do traço.
     - width: espessura da linha.
-    - points: lista de tuplas (x, y, t).
+    - points: lista de tuplas (x, y, t) com os pontos originais.
+    - simplified_points: lista de tuplas (x, y) com os pontos simplificados.
     """
 
     def __init__(self, color=(255, 255, 255), width=3):
         self.color = color
         self.width = width
         self.points = []
+        self.simplified_points = []
 
     def add_point(self, pos, t):
         """
@@ -50,6 +52,20 @@ class Stroke:
 
     def __len__(self):
         """
-        Permite usar len(stroke) para obter a quantidade de pontos.
+        Permite usar len(stroke) para obter a quantidade de pontos originais.
         """
         return len(self.points)
+
+    def get_xy_points(self):
+        """
+        Retorna apenas as coordenadas (x, y) dos pontos originais, ignorando o tempo.
+        """
+        return [(x, y) for (x, y, _) in self.points]
+
+    def set_simplified_points(self, xy_points):
+        """
+        Define a lista de pontos simplificados (após RDP, por exemplo).
+
+        :param xy_points: lista de tuplas (x, y).
+        """
+        self.simplified_points = list(xy_points) if xy_points is not None else []
